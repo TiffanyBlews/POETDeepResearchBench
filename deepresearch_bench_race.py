@@ -18,16 +18,19 @@ from utils.score_calculator import calculate_weighted_scores
 from utils.json_extractor import extract_json_from_markdown
 from utils.clean_article import ArticleCleaner
 
-# Configure logging - 将级别从INFO改为WARNING
-logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
+# Configure logging
+logging.basicConfig(
+    level=logging.WARNING,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 # 关键信息仍然需要输出，设置当前模块的日志级别为INFO
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 # Fixed configuration parameters
-CRITERIA_FILE = "data/criteria_data/criteria.jsonl"
-REFERENCE_FILE = "data/test_data/cleaned_data/reference.jsonl"
+CRITERIA_FILE = "data/criteria_data/criteria_simple.jsonl"
+REFERENCE_FILE = "data/test_data/cleaned_data/reference_simple.jsonl"
 MAX_RETRIES = 10
 
 def format_criteria_list(criteria_data):
@@ -331,13 +334,19 @@ def main():
     parser.add_argument('--only_zh', action='store_true', help='Only process Chinese data.')
     parser.add_argument('--only_en', action='store_true', help='Only process English data.')
     parser.add_argument('--force', action='store_true', help='Force re-evaluation even if results exist.')
-    
+
     # Add only the parameters that need to be configurable via command line
     parser.add_argument('--raw_data_dir', type=str, default="data/test_data/raw_data", help='Directory containing raw data.')
     parser.add_argument('--cleaned_data_dir', type=str, default="data/test_data/cleaned_data", help='Directory for cleaned data.')
     parser.add_argument('--max_workers', type=int, default=5, help='Maximum number of worker threads.')
     parser.add_argument('--query_file', type=str, default="data/prompt_data/query.jsonl", help='Path to query file with language information.')
     parser.add_argument('--output_dir', type=str, default="results", help='Directory for output results.')
+
+    # POET Query Selection Parameters
+    parser.add_argument('--enable_query_selection', action='store_true', help='Enable POET query selection before evaluation.')
+    parser.add_argument('--query_selection_threshold', type=float, default=4.0, help='Minimum POET score threshold for query selection.')
+    parser.add_argument('--raw_query_file', type=str, default="query_analysis/raw_query.md", help='Path to raw query markdown file for selection.')
+    parser.add_argument('--query_analysis_dir', type=str, default="query_analysis/", help='Directory for query analysis results.')
 
     args = parser.parse_args()
 
@@ -353,9 +362,84 @@ def main():
     max_workers = args.max_workers
     query_file = args.query_file
     output_dir = args.output_dir
+
+    # POET Query Selection parameters
+    enable_query_selection = args.enable_query_selection
+    query_selection_threshold = args.query_selection_threshold
+    raw_query_file = args.raw_query_file
+    query_analysis_dir = args.query_analysis_dir
     
     os.makedirs(output_dir, exist_ok=True)
-    
+
+    # === POET Query Selection Phase ===
+    if enable_query_selection:
+        logger.info("=== Starting POET Query Selection ===")
+        if os.path.exists(raw_query_file):
+            logger.info(f"Running POET query selection with threshold: {query_selection_threshold}")
+
+            # Create query analysis output directory
+            os.makedirs(query_analysis_dir, exist_ok=True)
+
+            # Import and run query selector
+            try:
+                import subprocess
+                import sys
+
+                # Run query selector as subprocess to avoid import conflicts
+                selector_cmd = [
+                    sys.executable, "query_selector.py",
+                    "--input_file", raw_query_file,
+                    "--output_dir", query_analysis_dir,
+                    "--threshold", str(query_selection_threshold),
+                    "--export_selected",
+                    "--max_workers", str(max_workers)
+                ]
+
+                logger.info(f"Executing command: {' '.join(selector_cmd)}")
+                result = subprocess.run(selector_cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
+
+                if result.returncode == 0:
+                    logger.info("Query selection completed successfully")
+                    logger.info(f"Query selection output:\n{result.stdout}")
+
+                    # Update query_file to use selected queries if available
+                    selected_query_file = os.path.join(query_analysis_dir, "selected_queries.jsonl")
+                    if os.path.exists(selected_query_file):
+                        # Convert selected_queries.jsonl to standard query.jsonl format
+                        convert_cmd = [
+                            sys.executable, "convert_query_scores.py",
+                            "--input_file", os.path.join(query_analysis_dir, "query_scores.json"),
+                            "--output_file", query_file,
+                            "--score_threshold", str(query_selection_threshold),
+                            "--backup_original"
+                        ]
+
+                        logger.info("Converting selected queries to standard format...")
+                        convert_result = subprocess.run(convert_cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
+
+                        if convert_result.returncode == 0:
+                            logger.info("Query conversion completed successfully")
+                            logger.info(f"Now using selected high-value queries from: {query_file}")
+                        else:
+                            logger.warning(f"Query conversion failed: {convert_result.stderr}")
+                            logger.warning("Continuing with original query file...")
+                    else:
+                        logger.warning(f"Selected queries file not found: {selected_query_file}")
+                        logger.warning("Continuing with original query file...")
+                else:
+                    logger.error(f"Query selection failed with return code {result.returncode}")
+                    logger.error(f"Error output: {result.stderr}")
+                    logger.warning("Continuing with original query file...")
+
+            except Exception as e:
+                logger.error(f"Error during query selection: {e}")
+                logger.warning("Continuing with original query file...")
+        else:
+            logger.warning(f"Raw query file not found: {raw_query_file}")
+            logger.warning("Skipping query selection, using original query file...")
+
+        logger.info("=== POET Query Selection Phase Completed ===\n")
+
     # check if the results file exists
     output_file = os.path.join(output_dir, "raw_results.jsonl")
     result_file = os.path.join(output_dir, "race_result.txt")

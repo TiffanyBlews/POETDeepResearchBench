@@ -1,0 +1,94 @@
+{
+  "description": "任务复杂度级别标注数据",
+  "last_updated": "2024-01-01",
+  "version": "1.0.0",
+  "complexity_levels": {
+    "1": {
+      "name": "simple",
+      "description": "简单任务，基础信息收集和整理",
+      "characteristics": [
+        "单一信息源",
+        "明确答案",
+        "标准化流程",
+        "低风险"
+      ],
+      "typical_time_range": "0.5-1小时",
+      "example_tasks": [
+        "基础信息查询",
+        "简单事实核实",
+        "标准格式填写"
+      ]
+    },
+    "2": {
+      "name": "moderate",
+      "description": "中等任务，需要分析和解释",
+      "characteristics": [
+        "多信息源",
+        "需要分析",
+        "一定创造性",
+        "中等风险"
+      ],
+      "typical_time_range": "1-3小时",
+      "example_tasks": [
+        "数据分析报告",
+        "趋势分析",
+        "对比研究"
+      ]
+    },
+    "3": {
+      "name": "complex",
+      "description": "复杂任务，需要深度分析和综合",
+      "characteristics": [
+        "多维度分析",
+        "需要综合",
+        "较高创造性",
+        "较高风险"
+      ],
+      "typical_time_range": "3-6小时",
+      "example_tasks": [
+        "深度研究报告",
+        "战略分析",
+        "综合性评估"
+      ]
+    },
+    "4": {
+      "name": "advanced",
+      "description": "高级任务，需要专业知识和深度思考",
+      "characteristics": [
+        "专业知识要求",
+        "深度思考",
+        "高创造性",
+        "高风险"
+      ],
+      "typical_time_range": "6-10小时",
+      "example_tasks": [
+        "专业咨询报告",
+        "创新解决方案",
+        "复杂问题分析"
+      ]
+    },
+    "5": {
+      "name": "expert",
+      "description": "专家级任务，需要顶级专业能力和原创性",
+      "characteristics": [
+        "顶级专业要求",
+        "原创性思考",
+        "极高创造性",
+        "极高风险"
+      ],
+      "typical_time_range": "10+小时",
+      "example_tasks": [
+        "前沿研究报告",
+        "突破性分析",
+        "顶级专业咨询"
+      ]
+    }
+  },
+  "complexity_mapping": {
+    "simple": 1,
+    "moderate": 2,
+    "complex": 3,
+    "advanced": 4,
+    "expert": 5
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(python:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp \"data/model_response/output.jsonl\" \"data/test_data/raw_data/output.jsonl\")",
+      "Bash(cp:*)",
+      "Bash(bash:*)",
+      "Bash(curl:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

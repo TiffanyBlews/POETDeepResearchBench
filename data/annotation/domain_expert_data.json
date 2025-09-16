@@ -1,0 +1,106 @@
+{
+  "description": "领域专家时间和时薪标注数据",
+  "last_updated": "2024-01-01",
+  "version": "1.0.0",
+  "domains": {
+    "finance": {
+      "expert_time_hours": 3.0,
+      "expert_hourly_rate_usd": 150.0,
+      "description": "金融分析、投资研究、财务建模等任务",
+      "complexity_factors": [
+        "市场分析",
+        "风险评估",
+        "财务建模",
+        "监管合规"
+      ]
+    },
+    "legal": {
+      "expert_time_hours": 4.0,
+      "expert_hourly_rate_usd": 200.0,
+      "description": "法律研究、合同分析、合规审查等任务",
+      "complexity_factors": [
+        "法律条文解读",
+        "案例研究",
+        "风险评估",
+        "合规检查"
+      ]
+    },
+    "medical": {
+      "expert_time_hours": 5.0,
+      "expert_hourly_rate_usd": 180.0,
+      "description": "医学研究、临床分析、医疗政策等任务",
+      "complexity_factors": [
+        "医学文献研究",
+        "临床数据分析",
+        "医疗政策解读",
+        "风险评估"
+      ]
+    },
+    "technology": {
+      "expert_time_hours": 2.0,
+      "expert_hourly_rate_usd": 120.0,
+      "description": "技术分析、产品研究、技术趋势等任务",
+      "complexity_factors": [
+        "技术调研",
+        "产品分析",
+        "趋势预测",
+        "技术评估"
+      ]
+    },
+    "marketing": {
+      "expert_time_hours": 2.0,
+      "expert_hourly_rate_usd": 100.0,
+      "description": "市场研究、品牌分析、营销策略等任务",
+      "complexity_factors": [
+        "市场调研",
+        "竞品分析",
+        "消费者洞察",
+        "营销策略"
+      ]
+    },
+    "consulting": {
+      "expert_time_hours": 3.5,
+      "expert_hourly_rate_usd": 180.0,
+      "description": "管理咨询、战略分析、业务优化等任务",
+      "complexity_factors": [
+        "战略分析",
+        "业务诊断",
+        "流程优化",
+        "组织设计"
+      ]
+    },
+    "research": {
+      "expert_time_hours": 4.0,
+      "expert_hourly_rate_usd": 140.0,
+      "description": "学术研究、文献综述、数据分析等任务",
+      "complexity_factors": [
+        "文献调研",
+        "数据分析",
+        "理论构建",
+        "实证研究"
+      ]
+    },
+    "engineering": {
+      "expert_time_hours": 2.5,
+      "expert_hourly_rate_usd": 130.0,
+      "description": "工程分析、技术设计、项目管理等任务",
+      "complexity_factors": [
+        "技术设计",
+        "工程分析",
+        "项目管理",
+        "质量评估"
+      ]
+    },
+    "general": {
+      "expert_time_hours": 2.0,
+      "expert_hourly_rate_usd": 100.0,
+      "description": "通用任务，无特定领域要求",
+      "complexity_factors": [
+        "信息整理",
+        "基础分析",
+        "报告撰写",
+        "数据收集"
+      ]
+    }
+  }
+}

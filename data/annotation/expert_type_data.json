@@ -1,0 +1,62 @@
+{
+  "description": "专家类型和时薪标注数据",
+  "last_updated": "2024-01-01",
+  "version": "1.0.0",
+  "expert_types": {
+    "junior_analyst": {
+      "hourly_rate_usd": 50.0,
+      "description": "初级分析师，1-3年经验",
+      "capabilities": [
+        "基础分析",
+        "数据整理",
+        "报告撰写",
+        "信息收集"
+      ],
+      "experience_years": "1-3"
+    },
+    "senior_analyst": {
+      "hourly_rate_usd": 100.0,
+      "description": "高级分析师，3-7年经验",
+      "capabilities": [
+        "深度分析",
+        "策略建议",
+        "项目管理",
+        "客户沟通"
+      ],
+      "experience_years": "3-7"
+    },
+    "domain_expert": {
+      "hourly_rate_usd": 150.0,
+      "description": "领域专家，7+年经验，特定领域专长",
+      "capabilities": [
+        "专业深度",
+        "行业洞察",
+        "复杂问题解决",
+        "战略规划"
+      ],
+      "experience_years": "7+"
+    },
+    "consultant": {
+      "hourly_rate_usd": 200.0,
+      "description": "咨询顾问，顶级专业能力",
+      "capabilities": [
+        "战略咨询",
+        "高级分析",
+        "领导力",
+        "创新思维"
+      ],
+      "experience_years": "10+"
+    },
+    "specialist": {
+      "hourly_rate_usd": 250.0,
+      "description": "专业顾问，特定领域顶级专家",
+      "capabilities": [
+        "顶级专业能力",
+        "行业领导力",
+        "创新突破",
+        "战略指导"
+      ],
+      "experience_years": "15+"
+    }
+  }
+}

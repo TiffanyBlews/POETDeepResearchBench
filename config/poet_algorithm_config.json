@@ -1,0 +1,48 @@
+{
+  "description": "POET评估算法配置参数（不包含标注数据）",
+  "version": "1.0.0",
+  "last_updated": "2024-01-01",
+  "poet_weights": {
+    "efficiency_value": 0.30,
+    "quality_value": 0.50,
+    "strategic_value": 0.20,
+    "description": "POET三大价值维度权重配置"
+  },
+  "quality_value_weights": {
+    "race_score": 0.70,
+    "fact_score": 0.30,
+    "description": "质量价值内部权重：RACE vs FACT"
+  },
+  "efficiency_weights": {
+    "time_weight": 0.40,
+    "cost_weight": 0.30,
+    "automation_weight": 0.30,
+    "description": "效率价值内部权重配置"
+  },
+  "strategic_weights": {
+    "task_capability": 0.60,
+    "knowledge_capability": 0.40,
+    "description": "战略价值内部权重配置"
+  },
+  "evaluation_parameters": {
+    "race_score_max": 5.0,
+    "fact_accuracy_max": 1.0,
+    "strategic_score_max": 5.0,
+    "efficiency_score_max": 1.0,
+    "description": "评估分数范围参数"
+  },
+  "performance_thresholds": {
+    "excellent_threshold": 0.8,
+    "good_threshold": 0.6,
+    "acceptable_threshold": 0.4,
+    "poor_threshold": 0.2,
+    "description": "性能评估阈值"
+  },
+  "system_settings": {
+    "knowledge_base_path": "poet_knowledge_base.json",
+    "max_retries": 3,
+    "timeout_seconds": 300,
+    "default_batch_size": 10,
+    "description": "系统运行参数"
+  }
+}

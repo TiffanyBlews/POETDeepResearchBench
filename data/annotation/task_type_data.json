@@ -1,0 +1,97 @@
+{
+  "description": "任务类型专家时间标注数据",
+  "last_updated": "2024-01-01",
+  "version": "1.0.0",
+  "task_types": {
+    "simple_query": {
+      "expert_time_hours": 0.5,
+      "description": "简单信息查询，如基础事实查找、定义解释等",
+      "typical_examples": [
+        "术语定义",
+        "基础事实查询",
+        "简单数据查找"
+      ],
+      "complexity_level": 1
+    },
+    "analysis_task": {
+      "expert_time_hours": 2.0,
+      "description": "数据分析任务，需要整理、分析、解释数据",
+      "typical_examples": [
+        "数据分析报告",
+        "趋势分析",
+        "对比分析"
+      ],
+      "complexity_level": 2
+    },
+    "research_task": {
+      "expert_time_hours": 4.0,
+      "description": "深度研究任务，需要多源信息整合和深度分析",
+      "typical_examples": [
+        "行业研究报告",
+        "深度调研",
+        "综合分析"
+      ],
+      "complexity_level": 3
+    },
+    "complex_research": {
+      "expert_time_hours": 8.0,
+      "description": "复杂研究任务，需要多维度深度分析和原创性思考",
+      "typical_examples": [
+        "战略研究报告",
+        "深度市场分析",
+        "政策影响评估"
+      ],
+      "complexity_level": 4
+    },
+    "market_analysis": {
+      "expert_time_hours": 6.0,
+      "description": "市场分析任务，需要市场调研、竞品分析、趋势预测",
+      "typical_examples": [
+        "市场研究报告",
+        "竞品分析",
+        "市场趋势预测"
+      ],
+      "complexity_level": 3
+    },
+    "competitor_research": {
+      "expert_time_hours": 3.0,
+      "description": "竞品研究任务，需要收集和分析竞争对手信息",
+      "typical_examples": [
+        "竞品分析报告",
+        "竞争对手研究",
+        "市场定位分析"
+      ],
+      "complexity_level": 2
+    },
+    "financial_analysis": {
+      "expert_time_hours": 4.0,
+      "description": "财务分析任务，需要财务建模、风险评估、投资分析",
+      "typical_examples": [
+        "财务分析报告",
+        "投资分析",
+        "风险评估"
+      ],
+      "complexity_level": 3
+    },
+    "legal_research": {
+      "expert_time_hours": 5.0,
+      "description": "法律研究任务，需要法律条文解读、案例研究、合规分析",
+      "typical_examples": [
+        "法律意见书",
+        "合规分析",
+        "法律风险评估"
+      ],
+      "complexity_level": 4
+    },
+    "technical_analysis": {
+      "expert_time_hours": 3.0,
+      "description": "技术分析任务，需要技术调研、产品分析、技术评估",
+      "typical_examples": [
+        "技术调研报告",
+        "产品技术分析",
+        "技术趋势分析"
+      ],
+      "complexity_level": 3
+    }
+  }
+}

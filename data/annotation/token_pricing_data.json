@@ -1,0 +1,55 @@
+{
+  "description": "AI模型token定价标注数据",
+  "last_updated": "2024-01-01",
+  "version": "1.0.0",
+  "pricing_models": {
+    "gpt-4": {
+      "input_cost_per_1k": 0.03,
+      "output_cost_per_1k": 0.06,
+      "description": "GPT-4模型定价",
+      "provider": "OpenAI"
+    },
+    "gpt-4o": {
+      "input_cost_per_1k": 0.005,
+      "output_cost_per_1k": 0.015,
+      "description": "GPT-4o模型定价",
+      "provider": "OpenAI"
+    },
+    "gpt-3.5-turbo": {
+      "input_cost_per_1k": 0.0015,
+      "output_cost_per_1k": 0.006,
+      "description": "GPT-3.5 Turbo模型定价",
+      "provider": "OpenAI"
+    },
+    "claude-3-opus": {
+      "input_cost_per_1k": 0.015,
+      "output_cost_per_1k": 0.075,
+      "description": "Claude 3 Opus模型定价",
+      "provider": "Anthropic"
+    },
+    "claude-3-sonnet": {
+      "input_cost_per_1k": 0.003,
+      "output_cost_per_1k": 0.015,
+      "description": "Claude 3 Sonnet模型定价",
+      "provider": "Anthropic"
+    },
+    "claude-3-haiku": {
+      "input_cost_per_1k": 0.00025,
+      "output_cost_per_1k": 0.00125,
+      "description": "Claude 3 Haiku模型定价",
+      "provider": "Anthropic"
+    },
+    "gemini-pro": {
+      "input_cost_per_1k": 0.0005,
+      "output_cost_per_1k": 0.0015,
+      "description": "Gemini Pro模型定价",
+      "provider": "Google"
+    },
+    "default": {
+      "input_cost_per_1k": 0.0015,
+      "output_cost_per_1k": 0.006,
+      "description": "默认定价标准（基于GPT-3.5-turbo）",
+      "provider": "Default"
+    }
+  }
+}

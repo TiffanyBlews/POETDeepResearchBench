@@ -1,12 +1,18 @@
 #!/bin/bash
 # Target model name list
-TARGET_MODELS=("claude-3-7-sonnet-latest")
+TARGET_MODELS=("gpt")
 
 # Common parameters for both RACE and Citation evaluations
 RAW_DATA_DIR="data/test_data/raw_data"
 OUTPUT_DIR="results"
-N_TOTAL_PROCESS=10
+N_TOTAL_PROCESS=2
 QUERY_DATA_PATH="data/prompt_data/query.jsonl"
+
+# Query selection parameters
+ENABLE_QUERY_SELECTION=false
+QUERY_THRESHOLD=4.0          # Minimum score threshold for query selection
+QUERY_INPUT_FILE="query_analysis/raw_query.md"
+QUERY_OUTPUT_DIR="query_analysis/"
 
 # Limit on number of prompts to process (for testing). Uncomment to enable
 # LIMIT="--limit 2"
@@ -27,6 +33,8 @@ OUTPUT_LOG_FILE="output.log"
 # Clear log file
 echo "Starting benchmark tests, log output to: $OUTPUT_LOG_FILE" > "$OUTPUT_LOG_FILE"
 
+# Note: Query selection is now integrated into the RACE evaluation phase
+
 # Loop through each model in the target models list
 for TARGET_MODEL in "${TARGET_MODELS[@]}"; do
   echo "Running benchmark for target model: $TARGET_MODEL"
@@ -40,6 +48,11 @@ for TARGET_MODEL in "${TARGET_MODELS[@]}"; do
   # Base command for current target model
   PYTHON_CMD="python -u deepresearch_bench_race.py \"$TARGET_MODEL\" --raw_data_dir $RAW_DATA_DIR --max_workers $N_TOTAL_PROCESS --query_file $QUERY_DATA_PATH --output_dir $RACE_OUTPUT"
 
+  # Add POET query selection parameters
+  if [[ "$ENABLE_QUERY_SELECTION" == "true" ]]; then
+    PYTHON_CMD="$PYTHON_CMD --enable_query_selection --query_selection_threshold $QUERY_THRESHOLD --raw_query_file $QUERY_INPUT_FILE --query_analysis_dir $QUERY_OUTPUT_DIR"
+  fi
+
   # Add optional parameters
   if [[ -n "$LIMIT" ]]; then
     PYTHON_CMD="$PYTHON_CMD $LIMIT"
@@ -48,15 +61,15 @@ for TARGET_MODEL in "${TARGET_MODELS[@]}"; do
   if [[ -n "$SKIP_CLEANING" ]]; then
     PYTHON_CMD="$PYTHON_CMD $SKIP_CLEANING"
   fi
-  
+
   if [[ -n "$ONLY_ZH" ]]; then
     PYTHON_CMD="$PYTHON_CMD $ONLY_ZH"
   fi
-  
+
   if [[ -n "$ONLY_EN" ]]; then
     PYTHON_CMD="$PYTHON_CMD $ONLY_EN"
   fi
-  
+
   if [[ -n "$FORCE" ]]; then
     PYTHON_CMD="$PYTHON_CMD $FORCE"
   fi
@@ -70,28 +83,19 @@ for TARGET_MODEL in "${TARGET_MODELS[@]}"; do
   
   # --- Phase 2: Citation Evaluation ---
   echo "==== Phase 2: Running FACT Evaluation for $TARGET_MODEL ====" | tee -a "$OUTPUT_LOG_FILE"
-
-  # Create citation output directory if it doesn't exist
   CITATION_OUTPUT="$OUTPUT_DIR/fact/$TARGET_MODEL"
   RAW_DATA_PATH="$RAW_DATA_DIR/$TARGET_MODEL.jsonl"
   mkdir -p $CITATION_OUTPUT
-
-  # Run citation extraction, deduplication, scraping, and validation
   echo "Extracting citations for $TARGET_MODEL" | tee -a "$OUTPUT_LOG_FILE"
   python -u -m utils.extract --raw_data_path $RAW_DATA_PATH --output_path $CITATION_OUTPUT/extracted.jsonl --query_data_path $QUERY_DATA_PATH --n_total_process $N_TOTAL_PROCESS
-
   echo "Deduplicate citations for $TARGET_MODEL" | tee -a "$OUTPUT_LOG_FILE"
   python -u -m utils.deduplicate --raw_data_path $CITATION_OUTPUT/extracted.jsonl --output_path $CITATION_OUTPUT/deduplicated.jsonl --query_data_path $QUERY_DATA_PATH --n_total_process $N_TOTAL_PROCESS
-
   echo "Scrape webpages for $TARGET_MODEL" | tee -a "$OUTPUT_LOG_FILE"
-  python -u -m utils.scrape --raw_data_path $CITATION_OUTPUT/deduplicated.jsonl --output_path $CITATION_OUTPUT/scraped.jsonl --n_total_process $N_TOTAL_PROCESS
-
+  python -u -m utils.scrape --raw_data_path $CITATION_OUTPUT/deduplicated.jsonl --output_path $CITATION_OUTPUT/scraped.jsonl --n_total_process 1
   echo "Validate citations for $TARGET_MODEL" | tee -a "$OUTPUT_LOG_FILE"
   python -u -m utils.validate --raw_data_path $CITATION_OUTPUT/scraped.jsonl --output_path $CITATION_OUTPUT/validated.jsonl --query_data_path $QUERY_DATA_PATH --n_total_process $N_TOTAL_PROCESS
-
   echo "Collecting statistics for $TARGET_MODEL" | tee -a "$OUTPUT_LOG_FILE"
   python -u -m utils.stat --input_path $CITATION_OUTPUT/validated.jsonl --output_path $CITATION_OUTPUT/fact_result.txt
-
   echo "Completed FACT benchmark test for target model: $TARGET_MODEL"
   echo -e "\n========== FACT test completed for $TARGET_MODEL ==========\n" >> "$OUTPUT_LOG_FILE"
   echo "--------------------------------------------------"

@@ -1,0 +1,76 @@
+{
+  "poet_weights": {
+    "efficiency_value": 0.30,
+    "quality_value": 0.50,
+    "strategic_value": 0.20
+  },
+  "quality_value_weights": {
+    "race_score": 0.70,
+    "fact_score": 0.30
+  },
+  "efficiency_weights": {
+    "time_weight": 0.40,
+    "cost_weight": 0.30,
+    "automation_weight": 0.30
+  },
+  "strategic_weights": {
+    "task_capability": 0.60,
+    "knowledge_capability": 0.40
+  },
+  "task_complexity_mapping": {
+    "simple": 1,
+    "moderate": 2,
+    "complex": 3,
+    "advanced": 4,
+    "expert": 5
+  },
+  "domain_expert_rates": {
+    "finance": 150.0,
+    "legal": 200.0,
+    "medical": 180.0,
+    "technology": 120.0,
+    "marketing": 100.0,
+    "consulting": 180.0,
+    "research": 140.0,
+    "engineering": 130.0,
+    "general": 100.0
+  },
+  "domain_expert_times": {
+    "finance": 3.0,
+    "legal": 4.0,
+    "medical": 5.0,
+    "technology": 2.0,
+    "marketing": 2.0,
+    "consulting": 3.5,
+    "research": 4.0,
+    "engineering": 2.5,
+    "general": 2.0
+  },
+  "token_pricing": {
+    "input_cost_per_1k": 0.0015,
+    "output_cost_per_1k": 0.006
+  },
+  "evaluation_thresholds": {
+    "excellent_poet_score": 0.8,
+    "good_poet_score": 0.6,
+    "acceptable_poet_score": 0.4,
+    "poor_poet_score": 0.2
+  },
+  "knowledge_base_settings": {
+    "max_knowledge_units_per_task": 10,
+    "min_knowledge_quality_threshold": 0.3,
+    "knowledge_similarity_threshold": 0.7,
+    "knowledge_retention_days": 365
+  },
+  "reporting_settings": {
+    "generate_detailed_report": true,
+    "generate_summary_report": true,
+    "generate_text_report": true,
+    "include_charts": true,
+    "top_tasks_count": 10,
+    "bottom_tasks_count": 5
+  },
+  "default_expert_time": 2.0,
+  "default_expert_rate": 100.0,
+  "knowledge_base_path": "poet_knowledge_base.json"
+}

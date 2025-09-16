@@ -5,6 +5,7 @@ import argparse
 from functools import partial
 from .io_utils import load_jsonl
 from .api import call_model
+import platform
 
 
 prompt_template = """你会看到一个statement列表，你需要对其去重，并返回去重后的statement序号列表，注意：只有表达完全一致的事情时，两个statement才被认为是重复的，如果列表中没有重复的statement，则返回完整的列表。
@@ -120,7 +121,21 @@ def run(data, output_path, id_to_lang_map):
 
 if __name__ == '__main__':
 
-    multiprocessing.set_start_method('fork')
+    if platform.system() == 'Windows':
+        try:
+            multiprocessing.set_start_method('spawn')
+        except RuntimeError:
+            pass
+    elif platform.system() == 'Darwin':
+        try:
+            multiprocessing.set_start_method('spawn')
+        except RuntimeError:
+            pass
+    else:  # Linux and other Unix-like systems
+        try:
+            multiprocessing.set_start_method('fork')
+        except RuntimeError:
+            pass
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--output_path", type=str, required=True)

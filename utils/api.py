@@ -1,34 +1,36 @@
 import os
 from typing import Optional, Dict, Any
-from google import genai
-from google.genai import types
+from openai import OpenAI
 import requests
 import logging
+from dotenv import load_dotenv
 
+load_dotenv()
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
-logging.getLogger('google').setLevel(logging.WARNING)
-logging.getLogger('google.genai').setLevel(logging.WARNING)
 logging.getLogger('httpx').setLevel(logging.WARNING)
+logging.getLogger('openai').setLevel(logging.WARNING)
 
 # Read API keys from environment variables
-API_KEY = os.environ.get("GEMINI_API_KEY", "")
+API_KEY = os.environ.get("OPENAI_API_KEY", "")
 READ_API_KEY = os.environ.get("JINA_API_KEY", "")
-FACT_Model = "gemini-2.5-flash-preview-05-20"
-Model = "gemini-2.5-pro-preview-06-05"
+BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
+FACT_Model = os.environ.get("OPENAI_MODEL", "google/gemini-2.5-pro")
+Model = os.environ.get("OPENAI_MODEL", "google/gemini-2.5-pro")
 
 class AIClient:
-    
+
     def __init__(self, api_key=API_KEY, model=Model):
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
+        self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
         if not self.api_key:
-            raise ValueError("Gemini API key not provided! Please set GEMINI_API_KEY environment variable.")
-        
+            raise ValueError("OpenAI API key not provided! Please set OPENAI_API_KEY environment variable.")
+
         # Configure client
-        self.client = genai.Client(api_key=self.api_key, http_options={'timeout': 600000})
+        self.base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url, timeout=600.0)
         self.model = model
         
     def generate(self, user_prompt: str, system_prompt: str = "", model: Optional[str] = None) -> str:
@@ -36,34 +38,33 @@ class AIClient:
         Generate text response
         """
         model_to_use = model or self.model
-        
+
         # Build request content
-        contents = []
-        
+        messages = []
+
         # Add system prompt
         if system_prompt:
-            contents.append({
+            messages.append({
                 "role": "system",
-                "parts": [{"text": system_prompt}]
+                "content": system_prompt
             })
-        
+
         # Add user prompt
-        contents.append({
-            "role": "user", 
-            "parts": [{"text": user_prompt}]
+        messages.append({
+            "role": "user",
+            "content": user_prompt
         })
-        
+
         try:
-            response = self.client.models.generate_content(
+            response = self.client.chat.completions.create(
                 model=model_to_use,
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    thinking_config=types.ThinkingConfig(thinking_budget=16000)
-                )
+                messages=messages,
+                temperature=0.1,
+                max_tokens=4000
             )
-            
-            return response.text
-            
+
+            return response.choices[0].message.content
+
         except Exception as e:
             raise Exception(f"Failed to generate content: {str(e)}")
 
