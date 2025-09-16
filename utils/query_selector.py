@@ -16,7 +16,7 @@ from typing import List, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 from dotenv import load_dotenv
-from utils.api import AIClient
+from .api import AIClient
 import pandas as pd
 
 load_dotenv()

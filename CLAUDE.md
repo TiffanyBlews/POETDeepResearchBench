@@ -35,7 +35,7 @@ python -u deepresearch_bench_race.py "model_name" \
 **Standalone query selection (optional):**
 ```bash
 # Select high-value queries using POET criteria
-python query_selector.py --input_file data/query_analysis/raw_query.md --output_dir data/query_analysis/ --threshold 4.0 --export_selected
+python utils/query_selector.py --input_file data/query_analysis/raw_query.md --output_dir data/query_analysis/ --threshold 4.0 --export_selected
 ```
 
 **Manual RACE evaluation only (without query selection):**

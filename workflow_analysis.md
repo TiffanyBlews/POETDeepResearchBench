@@ -5,12 +5,12 @@
 ### ✅ 已实现的核心组件
 
 #### 1. 查询筛选与评分系统
-- **query_selector.py**: POET 7维度查询评分和筛选
-- **convert_md_to_jsonl.py**: 将markdown查询转换为JSONL格式
+- **utils/query_selector.py**: POET 7维度查询评分和筛选
+- **utils/convert_md_to_jsonl.py**: 将markdown查询转换为JSONL格式
 - **状态**: ✅ 完全实现并集成
 
 #### 2. Rubric生成系统
-- **query_rubrics_generator.py**: 查询特定的rubric生成器
+- **utils/query_rubrics_generator.py**: 查询特定的rubric生成器
 - **数据文件**: data/criteria_data/criteria.jsonl
 - **状态**: ✅ 完全实现，支持动态权重生成
 
@@ -51,7 +51,7 @@ query.md → query.jsonl → criteria.jsonl → RACE+FACT → Efficiency → Str
 2. **POET查询筛选和评分**
    ```bash
    # 7维度查询价值评估（决策颠覆性、分析复杂性、行动导向性等）
-   python query_selector.py \
+   python utils/query_selector.py \
      --input_file query_analysis/raw_query.md \
      --output_dir query_analysis/ \
      --threshold 4.0 \
@@ -63,7 +63,7 @@ query.md → query.jsonl → criteria.jsonl → RACE+FACT → Efficiency → Str
 3. **标准格式转换**
    ```bash
    # 转换为benchmark标准格式
-   python convert_md_to_jsonl.py \
+   python utils/convert_md_to_jsonl.py \
      --input_file query_analysis/raw_query.md \
      --output_file data/prompt_data/query.jsonl
 
@@ -73,7 +73,7 @@ query.md → query.jsonl → criteria.jsonl → RACE+FACT → Efficiency → Str
 4. **动态Rubric生成**
    ```bash
    # 基于query特性生成自适应评估标准和权重
-   python query_rubrics_generator.py
+   python utils/query_rubrics_generator.py
 
    # 输出: data/criteria_data/criteria.jsonl (包含动态权重)
    ```
@@ -129,7 +129,7 @@ query.md → query.jsonl → criteria.jsonl → RACE+FACT → Efficiency → Str
 - **功能**: 7维度查询价值评估和高价值查询自动筛选
 
 ### 2. 动态Rubric系统
-- **位置**: query_rubrics_generator.py
+- **位置**: utils/query_rubrics_generator.py
 - **功能**: 基于查询特性自动生成评估标准和权重
 - **特性**: 每个查询都有专门的4维度动态权重
 
@@ -174,13 +174,13 @@ ENABLE_QUERY_SELECTION=true bash run_benchmark.sh
 **手动分步执行:**
 ```bash
 # 步骤1: 查询筛选（带缓存）
-python query_selector.py \
+python utils/query_selector.py \
   --input_file query_analysis/raw_query.md \
   --threshold 4.0 \
   --convert_to_jsonl data/prompt_data/query.jsonl
 
 # 步骤2: 动态标准生成（带缓存）
-python query_rubrics_generator.py
+python utils/query_rubrics_generator.py
 
 # 步骤3: 模型评估
 python deepresearch_bench_race.py "model_name" \
@@ -191,7 +191,7 @@ python deepresearch_bench_race.py "model_name" \
 **仅使用缓存快速筛选:**
 ```bash
 # 从已有评分文件快速筛选不同阈值
-python query_selector.py \
+python utils/query_selector.py \
   --from_scores query_analysis/query_scores.json \
   --threshold 4.5 \
   --convert_to_jsonl data/prompt_data/query.jsonl
@@ -200,14 +200,14 @@ python query_selector.py \
 ### 优化的缓存机制
 ```bash
 # 完整流程（第一次运行）
-raw_query.md → query_selector.py → query_scores.json + query.jsonl
+raw_query.md → utils/query_selector.py → query_scores.json + query.jsonl
                      ↓
-              query_rubrics_generator.py → criteria.jsonl
+              utils/query_rubrics_generator.py → criteria.jsonl
                      ↓
               deepresearch_bench_race.py → results/
 
 # 后续运行（使用缓存）
-query_scores.json → query_selector.py --from_scores → query.jsonl（新阈值）
+query_scores.json → utils/query_selector.py --from_scores → query.jsonl（新阈值）
                            ↓
                     直接使用缓存的criteria.jsonl → results/
 ```

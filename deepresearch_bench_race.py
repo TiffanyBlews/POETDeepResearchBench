@@ -394,7 +394,7 @@ def main():
                     logger.info(f"Running POET query evaluation (scores not found or outdated)")
                     # Run query selector as subprocess to avoid import conflicts
                     selector_cmd = [
-                        sys.executable, "query_selector.py",
+                        sys.executable, "utils/query_selector.py",
                         "--input_file", raw_query_file,
                         "--output_dir", query_analysis_dir,
                         "--threshold", str(query_selection_threshold),
@@ -410,7 +410,7 @@ def main():
 
                     # Run only the filtering part using query_selector.py with cache
                     filter_cmd = [
-                        sys.executable, "query_selector.py",
+                        sys.executable, "utils/query_selector.py",
                         "--from_scores", query_scores_file,
                         "--threshold", str(query_selection_threshold),
                         "--convert_to_jsonl", query_file
@@ -427,7 +427,7 @@ def main():
                     if need_rerun_scoring:
                         # Convert from the generated scores to benchmark format
                         convert_cmd = [
-                            sys.executable, "query_selector.py",
+                            sys.executable, "utils/query_selector.py",
                             "--from_scores", os.path.join(query_analysis_dir, "query_scores.json"),
                             "--threshold", str(query_selection_threshold),
                             "--convert_to_jsonl", query_file
@@ -472,7 +472,7 @@ def main():
             if need_rerun_criteria:
                 logger.info("Generating dynamic evaluation criteria for selected queries...")
                 try:
-                    criteria_cmd = [sys.executable, "query_rubrics_generator.py"]
+                    criteria_cmd = [sys.executable, "utils/query_rubrics_generator.py"]
                     criteria_result = subprocess.run(criteria_cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
 
                     if criteria_result.returncode == 0:

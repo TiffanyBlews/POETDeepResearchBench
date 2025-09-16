@@ -2,20 +2,25 @@ import json
 import os
 import re
 import time
+import pandas as pd
+import argparse
 from tqdm import tqdm
 from .api import AIClient
 import concurrent.futures
 import threading
 
 # Import dimension weight generation prompts for Chinese and English
-from ..prompt.criteria_prompt_zh import (
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from prompt.criteria_prompt_zh import (
     generate_eval_dimension_weight_prompt as zh_weight_prompt,
     generate_eval_criteria_prompt_comp as zh_comp_prompt,
     generate_eval_criteria_prompt_insight as zh_insight_prompt,
     generate_eval_criteria_prompt_Inst as zh_inst_prompt,
     generate_eval_criteria_prompt_readability as zh_readability_prompt
 )
-from ..prompt.criteria_prompt_en import (
+from prompt.criteria_prompt_en import (
     generate_eval_dimension_weight_prompt as en_weight_prompt,
     generate_eval_criteria_prompt_comp as en_comp_prompt,
     generate_eval_criteria_prompt_insight as en_insight_prompt,
@@ -126,15 +131,19 @@ def get_prompts_by_language(language):
             }
         }
 
-def generate_weights_multiple_times(item_id, prompt, language, sample_count=DEFAULT_SAMPLE_COUNT):
+def generate_weights_multiple_times(item_id, prompt, language, sample_count=DEFAULT_SAMPLE_COUNT, standard_answer=None):
     """Generate dimension weights multiple times for a single prompt and take the average"""
     weights_samples = []
-    
+
     # Get weight prompt template for the corresponding language
     prompts = get_prompts_by_language(language)
     weight_prompt_template = prompts["weight_prompt"]
-    
-    user_prompt = weight_prompt_template.format(task_prompt=prompt)
+
+    # Format prompt with or without standard answer
+    if standard_answer:
+        user_prompt = weight_prompt_template.format(task_prompt=prompt, standard_answer=standard_answer)
+    else:
+        user_prompt = weight_prompt_template.format(task_prompt=prompt)
     
     # Multiple sampling
     for _ in range(sample_count):
@@ -183,11 +192,12 @@ def process_single_item_sequential(item):
     """Process a single data item, executing two phases: generating weights and generating criteria"""
     item_id = item.get('id')
     prompt = item.get('prompt')
-    language = item.get('language', 'en')  
-    
+    language = item.get('language', 'en')
+    standard_answer = item.get('standard_answer')  # For ground truth mode
+
     # === Phase 1: Multiple sampling to generate dimension weights and take average ===
     current_weights = generate_weights_multiple_times(
-        item_id, prompt, language, DEFAULT_SAMPLE_COUNT
+        item_id, prompt, language, DEFAULT_SAMPLE_COUNT, standard_answer
     )
     
     # === Phase 2: Generate detailed criteria ===
@@ -196,7 +206,11 @@ def process_single_item_sequential(item):
     current_criterions = {}
 
     for dim_name, criteria_prompt_template in criteria_prompts.items():
-        user_prompt_criteria = criteria_prompt_template.format(task_prompt=prompt)
+        # Format prompt with or without standard answer
+        if standard_answer:
+            user_prompt_criteria = criteria_prompt_template.format(task_prompt=prompt, standard_answer=standard_answer)
+        else:
+            user_prompt_criteria = criteria_prompt_template.format(task_prompt=prompt)
         
         for attempt in range(RETRY_ATTEMPTS):
             criteria_output = ai_client.generate(user_prompt=user_prompt_criteria, system_prompt="")
@@ -223,7 +237,7 @@ def process_single_item_sequential(item):
     
     return final_data, item_id
 
-def generate_criteria_pipeline(input_file, output_file, process_limit, max_workers, sample_count=DEFAULT_SAMPLE_COUNT):
+def generate_criteria_pipeline(input_file, output_file, process_limit, max_workers, sample_count=DEFAULT_SAMPLE_COUNT, use_ground_truth=False):
     """Main process: read data, process, write to final file"""
     start_time = time.time()
     success_count_this_run = 0
@@ -237,19 +251,35 @@ def generate_criteria_pipeline(input_file, output_file, process_limit, max_worke
 
     # Read input data
     input_data_to_process = []
-    with open(input_file, 'r', encoding='utf-8') as f:
-        for i, line in enumerate(f):
+
+    if use_ground_truth:
+        # Read from CSV file with ground truth
+        df = pd.read_csv(input_file)
+        for index, row in df.iterrows():
             if process_limit is not None and len(input_data_to_process) >= process_limit:
                 break
-            data = json.loads(line)
-            if data.get('id') and data.get('prompt'):
-                # Also include language field in processing items
-                language = data.get('language', 'en')  # Default to English
-                input_data_to_process.append({
-                    'id': data['id'], 
-                    'prompt': data['prompt'],
-                    'language': language
-                })
+            input_data_to_process.append({
+                'id': f"gt_{index}",
+                'prompt': row['问题名称'],
+                'standard_answer': row['参考答案'],
+                'language': 'zh',  # Assume Chinese for ground truth data
+                'industry': row.get('所属行业', '')
+            })
+    else:
+        # Read from JSONL file
+        with open(input_file, 'r', encoding='utf-8') as f:
+            for i, line in enumerate(f):
+                if process_limit is not None and len(input_data_to_process) >= process_limit:
+                    break
+                data = json.loads(line)
+                if data.get('id') and data.get('prompt'):
+                    # Also include language field in processing items
+                    language = data.get('language', 'en')  # Default to English
+                    input_data_to_process.append({
+                        'id': data['id'],
+                        'prompt': data['prompt'],
+                        'language': language
+                    })
 
     if not input_data_to_process:
         print("No items to process.")
@@ -292,12 +322,25 @@ def generate_criteria_pipeline(input_file, output_file, process_limit, max_worke
     print(f"Samples per weight:    {sample_count}")
     print(f"Final result file:          {output_file}")
 
-if __name__ == "__main__":
-    # Call the main function directly with the config parameters defined above
+def main():
+    parser = argparse.ArgumentParser(description='Generate evaluation criteria for queries')
+    parser.add_argument('--input_file', default=INPUT_FILE, help='Input file path')
+    parser.add_argument('--output_file', default=OUTPUT_FILE, help='Output file path')
+    parser.add_argument('--process_limit', type=int, default=PROCESS_LIMIT, help='Limit number of items to process')
+    parser.add_argument('--max_workers', type=int, default=MAX_WORKERS, help='Maximum number of worker threads')
+    parser.add_argument('--sample_count', type=int, default=DEFAULT_SAMPLE_COUNT, help='Number of samples per weight')
+    parser.add_argument('--use_ground_truth', action='store_true', help='Use ground truth CSV format with standard answers')
+
+    args = parser.parse_args()
+
     generate_criteria_pipeline(
-        INPUT_FILE, 
-        OUTPUT_FILE, 
-        PROCESS_LIMIT, 
-        MAX_WORKERS,
-        DEFAULT_SAMPLE_COUNT
+        args.input_file,
+        args.output_file,
+        args.process_limit,
+        args.max_workers,
+        args.sample_count,
+        args.use_ground_truth
     )
+
+if __name__ == "__main__":
+    main()

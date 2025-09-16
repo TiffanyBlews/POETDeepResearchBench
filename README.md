@@ -246,7 +246,7 @@ data/
 
 ```bash
 # 基于POET 7维度模型筛选高价值查询
-python query_selector.py \
+python utils/query_selector.py \
     --input_file query_analysis/raw_query.md \
     --output_dir query_analysis/ \
     --threshold 4.0 \
@@ -293,7 +293,7 @@ bash run_benchmark.sh
 - ✅ **Query评分缓存**: 只在原始查询文件变化时重新评分，避免重复的昂贵LLM调用
 - ✅ **Criteria生成缓存**: 只在筛选结果变化时重新生成动态标准
 - ✅ **快速阈值调整**: 基于缓存评分文件快速尝试不同筛选阈值
-- ✅ **工具整合**: `query_selector.py` 集成了筛选和格式转换功能
+- ✅ **工具整合**: `utils/query_selector.py` 集成了筛选和格式转换功能
 
 **工作流程优化：**
 ```bash
@@ -309,14 +309,14 @@ cached_scores → 新阈值筛选 → cached_criteria → 评估
 **步骤1：Query筛选和评分（智能缓存）**
 ```bash
 # 完整评分（第一次或原始查询变化时）
-python query_selector.py \
+python utils/query_selector.py \
     --input_file query_analysis/raw_query.md \
     --output_dir query_analysis/ \
     --threshold 4.0 \
     --convert_to_jsonl data/prompt_data/query.jsonl
 
 # 快速筛选（使用缓存评分，调整阈值）
-python query_selector.py \
+python utils/query_selector.py \
     --from_scores query_analysis/query_scores.json \
     --threshold 4.5 \
     --convert_to_jsonl data/prompt_data/query.jsonl
@@ -325,7 +325,7 @@ python query_selector.py \
 **步骤2：动态评估标准生成（智能缓存）**
 ```bash
 # 自动检测是否需要重新生成criteria
-python query_rubrics_generator.py
+python utils/query_rubrics_generator.py
 ```
 
 **步骤3：模型输出评估**
@@ -439,9 +439,9 @@ POET综合分 = 效率价值 × 30% + 质量价值 × 50% + 战略价值 × 20%
 ### 核心模块
 
 #### 查询管理系统
-- `query_selector.py`: POET 7维度查询价值评估和筛选
-- `convert_md_to_jsonl.py`: Markdown查询转JSONL格式转换器
-- `query_rubrics_generator.py`: 查询特定的Rubric生成器
+- `utils/query_selector.py`: POET 7维度查询价值评估和筛选
+- `utils/convert_md_to_jsonl.py`: Markdown查询转JSONL格式转换器
+- `utils/query_rubrics_generator.py`: 查询特定的Rubric生成器
 
 #### 评估引擎
 - `poet_benchmark.py`: POET完整评估系统（推荐使用）

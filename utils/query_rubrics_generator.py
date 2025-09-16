@@ -25,6 +25,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # 导入criteria_prompt_zh.py中的prompt模板
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from prompt.criteria_prompt_zh import (
     generate_eval_dimension_weight_prompt,
     generate_eval_criteria_prompt_comp,
