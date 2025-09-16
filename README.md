@@ -276,48 +276,69 @@ python poet_benchmark.py "model_name" \
     --output_dir results/poet/model_name
 ```
 
-#### 方法二：传统RACE+FACT评估（集成查询筛选）
+#### 方法二：一键式POET评估（推荐）
 
 ```bash
 # 修改 run_benchmark.sh 中的模型名称
 TARGET_MODELS=("your-model-name")
 
-# 启用POET查询筛选的完整评估
+# 一键式运行：自动查询筛选 + 动态标准生成 + RACE+FACT评估
 ENABLE_QUERY_SELECTION=true bash run_benchmark.sh
 
-# 或使用标准评估
+# 传统评估（不使用POET筛选）
 bash run_benchmark.sh
 ```
 
-#### 方法三：分步骤运行
+**智能缓存机制：**
+- ✅ **Query评分缓存**: 只在原始查询文件变化时重新评分，避免重复的昂贵LLM调用
+- ✅ **Criteria生成缓存**: 只在筛选结果变化时重新生成动态标准
+- ✅ **快速阈值调整**: 基于缓存评分文件快速尝试不同筛选阈值
+- ✅ **工具整合**: `query_selector.py` 集成了筛选和格式转换功能
 
+**工作流程优化：**
 ```bash
-# 1. POET查询筛选和格式转换
+# 第一次运行：完整流程
+raw_query.md → 7维度评分 → 筛选 → criteria生成 → 评估
+
+# 后续运行：智能复用
+cached_scores → 新阈值筛选 → cached_criteria → 评估
+```
+
+#### 方法三：手动分步运行
+
+**步骤1：Query筛选和评分（智能缓存）**
+```bash
+# 完整评分（第一次或原始查询变化时）
 python query_selector.py \
     --input_file query_analysis/raw_query.md \
     --output_dir query_analysis/ \
     --threshold 4.0 \
-    --export_selected
+    --convert_to_jsonl data/prompt_data/query.jsonl
 
-python convert_md_to_jsonl.py \
-    --input_file query_analysis/raw_query.md \
-    --output_file data/prompt_data/query.jsonl
+# 快速筛选（使用缓存评分，调整阈值）
+python query_selector.py \
+    --from_scores query_analysis/query_scores.json \
+    --threshold 4.5 \
+    --convert_to_jsonl data/prompt_data/query.jsonl
+```
 
-# 2. 动态Rubric生成
-python convert_rubrics_to_criteria.py \
-    --query_rubrics_file query_rubrics.json \
-    --output_file data/criteria_data/criteria.jsonl
+**步骤2：动态评估标准生成（智能缓存）**
+```bash
+# 自动检测是否需要重新生成criteria
+python query_rubrics_generator.py
+```
 
-# 3. RACE评估（带查询筛选）
+**步骤3：模型输出评估**
+```bash
+# RACE评估（使用筛选后的查询和动态标准）
 python deepresearch_bench_race.py "model_name" \
     --raw_data_dir data/test_data/raw_data \
     --query_file data/prompt_data/query.jsonl \
     --output_dir results/race/model_name \
-    --enable_query_selection \
-    --query_selection_threshold 4.0 \
     --max_workers 10
 
-# 4. FACT评估流水线
+**步骤4：FACT评估流水线**
+```bash
 python -m utils.extract \
     --raw_data_path data/test_data/raw_data/model_name.jsonl \
     --output_path results/fact/model_name/extracted.jsonl \
@@ -420,7 +441,6 @@ POET综合分 = 效率价值 × 30% + 质量价值 × 50% + 战略价值 × 20%
 #### 查询管理系统
 - `query_selector.py`: POET 7维度查询价值评估和筛选
 - `convert_md_to_jsonl.py`: Markdown查询转JSONL格式转换器
-- `convert_rubrics_to_criteria.py`: 动态评估标准和权重生成器
 - `query_rubrics_generator.py`: 查询特定的Rubric生成器
 
 #### 评估引擎

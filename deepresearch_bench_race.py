@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 # Fixed configuration parameters
-CRITERIA_FILE = "data/criteria_data/criteria_simple.jsonl"
-REFERENCE_FILE = "data/test_data/cleaned_data/reference_simple.jsonl"
+CRITERIA_FILE = "data/criteria_data/criteria.jsonl"
+REFERENCE_FILE = "data/test_data/cleaned_data/reference.jsonl"
 MAX_RETRIES = 10
 
 def format_criteria_list(criteria_data):
@@ -375,43 +375,62 @@ def main():
     if enable_query_selection:
         logger.info("=== Starting POET Query Selection ===")
         if os.path.exists(raw_query_file):
-            logger.info(f"Running POET query selection with threshold: {query_selection_threshold}")
-
             # Create query analysis output directory
             os.makedirs(query_analysis_dir, exist_ok=True)
+
+            # Check if query scores already exist and are up-to-date
+            query_scores_file = os.path.join(query_analysis_dir, "query_scores.json")
+            need_rerun_scoring = (
+                not os.path.exists(query_scores_file) or
+                os.path.getmtime(raw_query_file) > os.path.getmtime(query_scores_file)
+            )
 
             # Import and run query selector
             try:
                 import subprocess
                 import sys
 
-                # Run query selector as subprocess to avoid import conflicts
-                selector_cmd = [
-                    sys.executable, "query_selector.py",
-                    "--input_file", raw_query_file,
-                    "--output_dir", query_analysis_dir,
-                    "--threshold", str(query_selection_threshold),
-                    "--export_selected",
-                    "--max_workers", str(max_workers)
-                ]
+                if need_rerun_scoring:
+                    logger.info(f"Running POET query evaluation (scores not found or outdated)")
+                    # Run query selector as subprocess to avoid import conflicts
+                    selector_cmd = [
+                        sys.executable, "query_selector.py",
+                        "--input_file", raw_query_file,
+                        "--output_dir", query_analysis_dir,
+                        "--threshold", str(query_selection_threshold),
+                        "--export_selected",
+                        "--max_workers", str(max_workers)
+                    ]
 
-                logger.info(f"Executing command: {' '.join(selector_cmd)}")
-                result = subprocess.run(selector_cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
+                    logger.info(f"Executing command: {' '.join(selector_cmd)}")
+                    result = subprocess.run(selector_cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
+                else:
+                    logger.info(f"Using cached query scores from {query_scores_file}")
+                    logger.info(f"Filtering queries with threshold: {query_selection_threshold}")
+
+                    # Run only the filtering part using query_selector.py with cache
+                    filter_cmd = [
+                        sys.executable, "query_selector.py",
+                        "--from_scores", query_scores_file,
+                        "--threshold", str(query_selection_threshold),
+                        "--convert_to_jsonl", query_file
+                    ]
+
+                    logger.info(f"Executing filter command: {' '.join(filter_cmd)}")
+                    result = subprocess.run(filter_cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
 
                 if result.returncode == 0:
-                    logger.info("Query selection completed successfully")
+                    logger.info("Query selection/filtering completed successfully")
                     logger.info(f"Query selection output:\n{result.stdout}")
 
-                    # Update query_file to use selected queries if available
-                    selected_query_file = os.path.join(query_analysis_dir, "selected_queries.jsonl")
-                    if os.path.exists(selected_query_file):
-                        # Convert selected_queries.jsonl to standard query.jsonl format
+                    # For new scoring runs, we need additional conversion
+                    if need_rerun_scoring:
+                        # Convert from the generated scores to benchmark format
                         convert_cmd = [
-                            sys.executable, "convert_query_scores.py",
-                            "--input_file", os.path.join(query_analysis_dir, "query_scores.json"),
-                            "--output_file", query_file,
-                            "--score_threshold", str(query_selection_threshold),
-                            "--backup_original"
+                            sys.executable, "query_selector.py",
+                            "--from_scores", os.path.join(query_analysis_dir, "query_scores.json"),
+                            "--threshold", str(query_selection_threshold),
+                            "--convert_to_jsonl", query_file
                         ]
 
                         logger.info("Converting selected queries to standard format...")
@@ -424,8 +443,8 @@ def main():
                             logger.warning(f"Query conversion failed: {convert_result.stderr}")
                             logger.warning("Continuing with original query file...")
                     else:
-                        logger.warning(f"Selected queries file not found: {selected_query_file}")
-                        logger.warning("Continuing with original query file...")
+                        # For cached runs, conversion was already done
+                        logger.info(f"Now using filtered high-value queries from: {query_file}")
                 else:
                     logger.error(f"Query selection failed with return code {result.returncode}")
                     logger.error(f"Error output: {result.stderr}")
@@ -438,7 +457,38 @@ def main():
             logger.warning(f"Raw query file not found: {raw_query_file}")
             logger.warning("Skipping query selection, using original query file...")
 
-        logger.info("=== POET Query Selection Phase Completed ===\n")
+        # === POET Criteria Generation (after query selection) ===
+        if os.path.exists(os.path.join(query_analysis_dir, "query_scores.csv")):
+            logger.info("=== Starting Dynamic Criteria Generation ===")
+
+            criteria_file = "data/criteria_data/criteria.jsonl"
+            query_scores_csv = os.path.join(query_analysis_dir, "query_scores.csv")
+
+            need_rerun_criteria = (
+                not os.path.exists(criteria_file) or
+                os.path.getmtime(query_scores_csv) > os.path.getmtime(criteria_file)
+            )
+
+            if need_rerun_criteria:
+                logger.info("Generating dynamic evaluation criteria for selected queries...")
+                try:
+                    criteria_cmd = [sys.executable, "query_rubrics_generator.py"]
+                    criteria_result = subprocess.run(criteria_cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
+
+                    if criteria_result.returncode == 0:
+                        logger.info("Criteria generation completed successfully")
+                        logger.info(f"Dynamic criteria saved to: {criteria_file}")
+                    else:
+                        logger.warning(f"Criteria generation failed: {criteria_result.stderr}")
+                        logger.warning("Continuing with default criteria...")
+
+                except Exception as e:
+                    logger.error(f"Error during criteria generation: {e}")
+                    logger.warning("Continuing with default criteria...")
+            else:
+                logger.info(f"Using cached criteria from: {criteria_file}")
+
+        logger.info("=== POET Query Selection & Criteria Generation Phase Completed ===\n")
 
     # check if the results file exists
     output_file = os.path.join(output_dir, "raw_results.jsonl")

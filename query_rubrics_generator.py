@@ -1,3 +1,17 @@
+#!/usr/bin/env python3
+"""
+Query-specific Dynamic Criteria Generator for POET Bench
+
+This module generates query-specific evaluation criteria directly in the standard
+criteria.jsonl format, eliminating the need for format conversion.
+
+Features:
+- Reads query scores from CSV and query mapping from JSONL
+- Generates dynamic dimension weights using LLM
+- Creates detailed evaluation criteria for each dimension
+- Outputs directly to data/criteria_data/criteria.jsonl format
+"""
+
 import pandas as pd
 import json
 import re
@@ -33,7 +47,7 @@ def read_queries_from_csv(csv_file: str) -> List[Dict[str, Any]]:
     try:
         df = pd.read_csv(csv_file, encoding='utf-8-sig')
         queries = []
-        
+
         for _, row in df.iterrows():
             queries.append({
                 "number": row["Query编号"],
@@ -41,12 +55,27 @@ def read_queries_from_csv(csv_file: str) -> List[Dict[str, Any]]:
                 "content": row["Query内容"],
                 "overall_score": row["总分"]
             })
-        
+
         print(f"成功读取 {len(queries)} 个queries")
         return queries
     except Exception as e:
         print(f"读取CSV文件失败: {str(e)}")
         return []
+
+def read_query_mapping(query_file: str) -> Dict[str, Dict[str, Any]]:
+    """从query.jsonl文件中读取id映射"""
+    query_mapping = {}
+    try:
+        with open(query_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.strip():
+                    query_item = json.loads(line)
+                    query_mapping[query_item['prompt']] = query_item
+        print(f"成功读取 {len(query_mapping)} 个query映射")
+        return query_mapping
+    except Exception as e:
+        print(f"读取query映射失败: {str(e)}")
+        return {}
 
 def extract_json_from_response(response: str) -> Dict[str, Any]:
     """从响应中提取JSON内容"""
@@ -123,176 +152,158 @@ def generate_criteria_for_dimension(query: Dict[str, Any], dimension: str) -> Di
     
     return result
 
-def process_single_query(query: Dict[str, Any], query_index: int, total_queries: int) -> Dict[str, Any]:
-    """处理单个query的rubrics生成"""
+def process_single_query(query: Dict[str, Any], query_index: int, total_queries: int, query_mapping: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    """处理单个query的criteria生成"""
     with print_lock:
         print(f"\n正在处理 Query {query['number']}: {query['title']} ({query_index}/{total_queries})")
-    
+
     try:
-        result = {
-            "query_number": query["number"],
-            "query_title": query["title"],
-            "query_content": query["content"],
-            "overall_score": query["overall_score"],
-            "dimension_weights": {},
-            "criteria": {}
-        }
-        
+        # 查找对应的query ID
+        matching_query = None
+        for prompt, qdata in query_mapping.items():
+            if (query['content'] in prompt or prompt in query['content'] or
+                str(qdata.get('id', '')) == str(query['number'])):
+                matching_query = qdata
+                break
+
+        if not matching_query:
+            print(f"Warning: 无法找到Query {query['number']}的对应ID")
+            return {"error": f"无法找到Query {query['number']}的对应ID"}
+
         # 1. 生成维度权重
         with print_lock:
             print(f"  - 生成维度权重...")
         weights_result = generate_dimension_weights(query)
         if "error" in weights_result:
-            result["error"] = weights_result["error"]
-            return result
-        
-        result["dimension_weights"] = weights_result["weights"]
-        result["weights_analysis"] = weights_result["analysis"]
-        
+            return {"error": weights_result["error"]}
+
         # 2. 为每个维度生成评判标准
+        criteria_result = {}
         dimensions = ["comprehensiveness", "insight", "instruction_following", "readability"]
         for dimension in dimensions:
             with print_lock:
                 print(f"  - 生成{dimension}维度标准...")
-            
-            criteria_result = generate_criteria_for_dimension(query, dimension)
-            if "error" in criteria_result:
-                result[f"{dimension}_error"] = criteria_result["error"]
+
+            dimension_criteria = generate_criteria_for_dimension(query, dimension)
+            if "error" in dimension_criteria:
+                print(f"  - {dimension}维度生成失败: {dimension_criteria['error']}")
+                criteria_result[dimension] = [{
+                    "criterion": f"Default {dimension} criterion",
+                    "explanation": f"Default explanation for {dimension}",
+                    "weight": 1.0
+                }]
             else:
-                result["criteria"][dimension] = criteria_result
-        
+                criteria_result[dimension] = dimension_criteria
+
+        # 3. 构建criteria格式的结果
+        result = {
+            "id": matching_query['id'],
+            "prompt": matching_query['prompt'],
+            "dimension_weight": weights_result["weights"],
+            "criterions": criteria_result
+        }
+
         with print_lock:
-            print(f"Query {query['number']} rubrics生成完成")
-        
+            print(f"Query {query['number']} criteria生成完成")
+
         return result
-        
+
     except Exception as e:
         with print_lock:
             print(f"Query {query['number']} 处理异常: {str(e)}")
         return {"error": f"处理异常: {str(e)}"}
 
-def save_results_to_json(results: List[Dict[str, Any]], output_file: str = "query_rubrics.json"):
-    """将结果保存为JSON格式"""
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(results, f, ensure_ascii=False, indent=2)
-    print(f"JSON结果已保存到 {output_file}")
+def save_results_to_jsonl(results: List[Dict[str, Any]], output_file: str = "data/criteria_data/criteria.jsonl"):
+    """将结果保存为JSONL格式（criteria标准格式）"""
+    # 筛选有效结果并按ID排序
+    valid_results = [r for r in results if "error" not in r]
+    valid_results.sort(key=lambda x: x['id'])
 
-def save_results_to_csv(results: List[Dict[str, Any]], output_file: str = "query_rubrics.csv"):
-    """将结果保存为CSV格式"""
-    # 准备CSV数据
-    csv_data = []
-    
-    for result in results:
-        if "error" in result:
-            continue
-            
-        base_row = {
-            "Query编号": result["query_number"],
-            "Query标题": result["query_title"],
-            "Query内容": result["query_content"],
-            "总分": result["overall_score"]
-        }
-        
-        # 添加维度权重
-        weights = result.get("dimension_weights", {})
-        base_row.update({
-            "全面性权重": weights.get("comprehensiveness", 0),
-            "洞察力权重": weights.get("insight", 0),
-            "指令遵循权重": weights.get("instruction_following", 0),
-            "可读性权重": weights.get("readability", 0)
-        })
-        
-        # 添加权重分析
-        base_row["权重分析"] = result.get("weights_analysis", "")
-        
-        # 添加各维度的评判标准数量
-        criteria = result.get("criteria", {})
-        for dimension in ["comprehensiveness", "insight", "instruction_following", "readability"]:
-            if dimension in criteria and isinstance(criteria[dimension], list):
-                base_row[f"{dimension}_标准数量"] = len(criteria[dimension])
-            else:
-                base_row[f"{dimension}_标准数量"] = 0
-        
-        csv_data.append(base_row)
-    
-    # 保存CSV
-    if csv_data:
-        df = pd.DataFrame(csv_data)
-        df.to_csv(output_file, index=False, encoding='utf-8-sig')
-        print(f"CSV结果已保存到 {output_file}")
-    else:
-        print("没有有效数据可保存到CSV")
+    # 确保输出目录存在
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+
+    with open(output_file, 'w', encoding='utf-8') as f:
+        for result in valid_results:
+            f.write(json.dumps(result, ensure_ascii=False) + '\n')
+
+    print(f"Criteria结果已保存到 {output_file}")
+    print(f"成功转换 {len(valid_results)} 个criteria项目")
 
 def main():
     """主函数"""
-    print("开始读取CSV文件并生成rubrics...")
-    
+    print("开始读取CSV文件并生成criteria...")
+
     # 读取queries
-    queries = read_queries_from_csv("query_scores.csv")
+    queries = read_queries_from_csv("data/query_analysis/query_scores.csv")
     if not queries:
         print("没有找到有效的queries，程序退出")
         return
-    
+
+    # 读取query映射
+    query_mapping = read_query_mapping("data/prompt_data/query.jsonl")
+    if not query_mapping:
+        print("没有找到有效的query映射，程序退出")
+        return
+
     # 设置线程数（可以根据API限制调整）
     max_workers = 8 # 减少线程数，因为每个query需要多次API调用
-    
+
     print(f"使用 {max_workers} 个线程并发处理...")
-    
+
     results = []
     start_time = time.time()
-    
+
     # 使用线程池并发处理
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # 提交所有任务
         future_to_query = {
-            executor.submit(process_single_query, query, i+1, len(queries)): query 
+            executor.submit(process_single_query, query, i+1, len(queries), query_mapping): query
             for i, query in enumerate(queries)
         }
-        
+
         # 收集结果
         completed_count = 0
         for future in as_completed(future_to_query):
             completed_count += 1
             result = future.result()
-            
+
             if result is not None:
                 results.append(result)
-            
+
             # 显示进度
             with print_lock:
                 print(f"进度: {completed_count}/{len(queries)} 完成")
-    
+
     end_time = time.time()
     processing_time = end_time - start_time
-    
-    print(f"\n所有rubrics生成完成！总耗时: {processing_time:.2f}秒")
-    
-    # 保存结果
-    save_results_to_json(results, "query_rubrics.json")
-    save_results_to_csv(results, "query_rubrics.csv")
-    
+
+    print(f"\n所有criteria生成完成！总耗时: {processing_time:.2f}秒")
+
+    # 保存结果为JSONL格式
+    save_results_to_jsonl(results, "data/criteria_data/criteria.jsonl")
+
     # 生成汇总报告
-    print("\n=== Rubrics生成汇总报告 ===")
+    print("\n=== Criteria生成汇总报告 ===")
     valid_results = [r for r in results if "error" not in r]
-    
+
     if valid_results:
-        print(f"成功生成: {len(valid_results)}/{len(queries)} 个queries的rubrics")
+        print(f"成功生成: {len(valid_results)}/{len(queries)} 个queries的criteria")
         print(f"平均每个query耗时: {processing_time/len(queries):.2f}秒")
-        
+
         # 统计各维度的标准数量
         total_criteria = {"comprehensiveness": 0, "insight": 0, "instruction_following": 0, "readability": 0}
         for result in valid_results:
-            criteria = result.get("criteria", {})
+            criterions = result.get("criterions", {})
             for dimension in total_criteria:
-                if dimension in criteria and isinstance(criteria[dimension], list):
-                    total_criteria[dimension] += len(criteria[dimension])
-        
+                if dimension in criterions and isinstance(criterions[dimension], list):
+                    total_criteria[dimension] += len(criterions[dimension])
+
         print(f"\n各维度评判标准统计:")
         for dimension, count in total_criteria.items():
             avg_count = count / len(valid_results) if valid_results else 0
             print(f"  {dimension}: 总计 {count} 条，平均 {avg_count:.1f} 条/query")
     else:
-        print("没有成功生成任何rubrics")
+        print("没有成功生成任何criteria")
 
 if __name__ == "__main__":
     main() 

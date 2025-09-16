@@ -29,13 +29,13 @@ python -u deepresearch_bench_race.py "model_name" \
     --output_dir results/race/model_name \
     --enable_query_selection \
     --query_selection_threshold 4.0 \
-    --raw_query_file query_analysis/raw_query.md
+    --raw_query_file data/query_analysis/raw_query.md
 ```
 
 **Standalone query selection (optional):**
 ```bash
 # Select high-value queries using POET criteria
-python query_selector.py --input_file query_analysis/raw_query.md --output_dir query_analysis/ --threshold 4.0 --export_selected
+python query_selector.py --input_file data/query_analysis/raw_query.md --output_dir data/query_analysis/ --threshold 4.0 --export_selected
 ```
 
 **Manual RACE evaluation only (without query selection):**

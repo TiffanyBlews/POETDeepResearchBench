@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 POET Bench Query Selection System
@@ -17,6 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 from dotenv import load_dotenv
 from utils.api import AIClient
+import pandas as pd
 
 load_dotenv()
 
@@ -272,12 +273,185 @@ def export_selected_queries_to_jsonl(selected_queries: List[Dict[str, Any]], out
 
     print(f"筛选的查询已导出到 {output_file}")
 
+def determine_topic(query_title: str, query_content: str) -> str:
+    """Determine topic category based on query content"""
+    content_lower = (query_title + " " + query_content).lower()
+
+    # Define keyword mappings to topics
+    topic_keywords = {
+        "Finance & Business": ["投资", "金融", "资金", "收入", "财务", "保险", "银行", "股票", "基金", "融资", "经济", "商业", "市场", "价格"],
+        "Technology": ["技术", "软件", "算法", "程序", "数据", "网络", "系统", "开发", "编程", "计算机", "人工智能", "ai"],
+        "Healthcare & Medicine": ["医疗", "健康", "药物", "医院", "病", "治疗", "药械", "医学", "疫苗", "诊断", "临床"],
+        "Law & Policy": ["法律", "政策", "法规", "条例", "法院", "合规", "监管", "政府", "行政", "法条", "豁免", "申请流程"],
+        "Education": ["教育", "学校", "学习", "培训", "课程", "教学", "研究", "大学", "学生", "考试"],
+        "Science & Research": ["研究", "科学", "实验", "数据", "分析", "模型", "理论", "方法", "技术"],
+        "Industry & Manufacturing": ["工业", "制造", "生产", "工厂", "供应链", "材料", "设备", "机械"],
+        "General Research": ["其他", "综合", "一般"]
+    }
+
+    # Check which topic has the most matching keywords
+    topic_scores = {}
+    for topic, keywords in topic_keywords.items():
+        score = sum(1 for keyword in keywords if keyword in content_lower)
+        if score > 0:
+            topic_scores[topic] = score
+
+    if topic_scores:
+        return max(topic_scores.items(), key=lambda x: x[1])[0]
+    else:
+        return "General Research"
+
+def determine_language(query_content: str) -> str:
+    """Determine language based on query content"""
+    # Simple heuristic: if contains Chinese characters, it's Chinese
+    for char in query_content:
+        if '\u4e00' <= char <= '\u9fff':  # Chinese Unicode range
+            return "zh"
+    return "en"
+
+def convert_to_benchmark_jsonl(query_scores: List[Dict[str, Any]],
+                              score_threshold: float = 0.0,
+                              output_file: str = None) -> List[Dict[str, Any]]:
+    """Convert query scores to benchmark JSONL format"""
+
+    # Filter queries based on threshold and sort by score
+    if score_threshold > 0:
+        filtered_queries = [
+            q for q in query_scores
+            if "overall_score" in q["scoring_result"] and
+               q["scoring_result"]["overall_score"] >= score_threshold
+        ]
+    else:
+        # Use all queries if threshold is 0
+        filtered_queries = [
+            q for q in query_scores
+            if "overall_score" in q["scoring_result"]
+        ]
+
+    # Sort by score descending
+    filtered_queries.sort(
+        key=lambda x: x["scoring_result"]["overall_score"],
+        reverse=True
+    )
+
+    converted_queries = []
+
+    for i, query_data in enumerate(filtered_queries, 1):
+        # Extract basic info
+        query_title = query_data["query_title"]
+        query_content = query_data["query_content"]
+
+        # Determine topic and language
+        topic = determine_topic(query_title, query_content)
+        language = determine_language(query_content)
+
+        # Create JSONL entry (clean format for benchmark)
+        jsonl_entry = {
+            "id": i,
+            "topic": topic,
+            "language": language,
+            "prompt": query_content
+        }
+
+        converted_queries.append(jsonl_entry)
+
+    if output_file:
+        with open(output_file, 'w', encoding='utf-8') as f:
+            for entry in converted_queries:
+                f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+
+        print(f"转换后的benchmark格式已保存到 {output_file}")
+        print(f"共保存 {len(converted_queries)} 个查询")
+
+    return converted_queries
+
+def filter_and_convert_from_scores(scores_file: str, threshold: float, output_file: str):
+    """从已有的query_scores.json文件中筛选并转换格式"""
+    print(f"从缓存的评分文件筛选: {scores_file}")
+    print(f"使用阈值: {threshold}")
+
+    try:
+        with open(scores_file, 'r', encoding='utf-8') as f:
+            query_scores = json.load(f)
+
+        # 转换为benchmark格式
+        convert_to_benchmark_jsonl(query_scores, threshold, output_file)
+
+        # 统计信息
+        filtered_count = len([q for q in query_scores
+                            if "overall_score" in q["scoring_result"] and
+                            q["scoring_result"]["overall_score"] >= threshold])
+        total_count = len([q for q in query_scores if "overall_score" in q["scoring_result"]])
+
+        print(f"筛选结果: {filtered_count}/{total_count} 个查询 (阈值≥{threshold})")
+
+    except Exception as e:
+        print(f"处理失败: {str(e)}")
+        raise
+
+def generate_criteria_from_scores(scores_file: str, criteria_output: str = "data/criteria_data/criteria.jsonl"):
+    """从评分文件生成动态评估标准"""
+    print(f"从评分文件生成criteria: {scores_file}")
+
+    try:
+        # 读取评分结果
+        with open(scores_file, 'r', encoding='utf-8') as f:
+            query_scores = json.load(f)
+
+        # 生成criteria（简化版实现）
+        criteria_results = []
+        valid_queries = [q for q in query_scores if "overall_score" in q["scoring_result"]]
+
+        for i, query_data in enumerate(valid_queries, 1):
+            # 为每个query生成基本的criteria结构
+            criteria_entry = {
+                "id": i,
+                "prompt": query_data["query_content"],
+                "dimension_weight": {
+                    "comprehensiveness": 0.25,
+                    "insight": 0.25,
+                    "instruction_following": 0.25,
+                    "readability": 0.25
+                },
+                "criterions": {
+                    "comprehensiveness": [
+                        {"criterion": "信息覆盖面", "explanation": "评估回答的信息覆盖面和完整性", "weight": 1.0}
+                    ],
+                    "insight": [
+                        {"criterion": "深度分析", "explanation": "评估分析的深度和洞察力", "weight": 1.0}
+                    ],
+                    "instruction_following": [
+                        {"criterion": "指令遵循", "explanation": "评估对查询指令的遵循程度", "weight": 1.0}
+                    ],
+                    "readability": [
+                        {"criterion": "可读性", "explanation": "评估文本的清晰度和可读性", "weight": 1.0}
+                    ]
+                }
+            }
+
+            criteria_results.append(criteria_entry)
+
+        # 确保输出目录存在
+        os.makedirs(os.path.dirname(criteria_output), exist_ok=True)
+
+        # 保存结果
+        with open(criteria_output, 'w', encoding='utf-8') as f:
+            for result in criteria_results:
+                f.write(json.dumps(result, ensure_ascii=False) + '\n')
+
+        print(f"动态criteria已保存到 {criteria_output}")
+        print(f"成功生成 {len(criteria_results)} 个criteria项目")
+
+    except Exception as e:
+        print(f"Criteria生成失败: {str(e)}")
+        raise
+
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(description="POET Bench Query Selection System")
-    parser.add_argument("--input_file", default="query_analysis/raw_query.md",
+    parser.add_argument("--input_file", default="data/query_analysis/raw_query.md",
                         help="Input markdown file containing queries")
-    parser.add_argument("--output_dir", default="query_analysis/",
+    parser.add_argument("--output_dir", default="data/query_analysis/",
                         help="Output directory for results")
     parser.add_argument("--threshold", type=float, default=4.0,
                         help="Minimum score threshold for selected queries")
@@ -285,10 +459,30 @@ def main():
                         help="Maximum number of worker threads")
     parser.add_argument("--export_selected", action="store_true",
                         help="Export selected high-value queries to benchmark format")
+    parser.add_argument("--from_scores", type=str,
+                        help="Use existing scores file instead of re-evaluating (path to query_scores.json)")
+    parser.add_argument("--convert_to_jsonl", type=str,
+                        help="Convert and filter to benchmark JSONL format (output file path)")
 
     args = parser.parse_args()
 
     print("=== POET Bench Query Selection System ===")
+
+    # 检查是否使用缓存的评分文件
+    if args.from_scores:
+        if not os.path.exists(args.from_scores):
+            print(f"错误: 指定的评分文件不存在: {args.from_scores}")
+            return
+
+        print("使用缓存的评分文件进行筛选...")
+
+        if args.convert_to_jsonl:
+            # 直接从评分文件筛选并转换为benchmark格式
+            filter_and_convert_from_scores(args.from_scores, args.threshold, args.convert_to_jsonl)
+        else:
+            print("错误: 使用 --from_scores 时必须指定 --convert_to_jsonl 输出文件")
+        return
+
     print("开始提取和评分queries...")
 
     # 确保输出目录存在
