@@ -4,6 +4,19 @@
 POET Bench Query Selection System
 This module provides functionality to evaluate and select high-value queries for the POET benchmark.
 Based on the 7-dimensional query value assessment model.
+
+Supported Input Formats:
+1. Markdown (.md): Original format with specific query structure
+2. CSV (.csv): Generic CSV format with required columns:
+   - Required columns (case-insensitive, supports variants):
+     * number/id/query_id/num/编号: Query identifier
+     * title/query_title/name/subject/标题/题目: Query title
+     * content/query/prompt/text/description/内容/查询/问题: Query content
+
+   Example CSV format:
+   number,title,content
+   1,"Market Analysis","Analyze the current smartphone market trends"
+   2,"Risk Assessment","Evaluate the financial risks of expanding to Europe"
 """
 
 import re
@@ -87,6 +100,112 @@ def extract_queries_from_markdown(file_path: str) -> List[Dict[str, str]]:
         })
 
     return queries
+
+def extract_queries_from_csv(file_path: str) -> List[Dict[str, str]]:
+    """从CSV文件中提取所有query
+
+    CSV格式要求:
+    - 必须包含列: number, title, content (或 query, 或 prompt)
+    - 可选列: id (如果没有number列)
+    """
+    queries = []
+
+    try:
+        # 尝试不同的编码
+        encodings = ['utf-8', 'utf-8-sig', 'gbk', 'gb2312']
+        df = None
+
+        for encoding in encodings:
+            try:
+                df = pd.read_csv(file_path, encoding=encoding)
+                break
+            except UnicodeDecodeError:
+                continue
+
+        if df is None:
+            raise ValueError(f"无法以任何编码读取CSV文件: {file_path}")
+
+        # 检查必需的列
+        required_columns = set(['number', 'title', 'content'])
+        available_columns = set(df.columns.str.lower())
+
+        # 列名映射 - 支持常见的列名变体
+        column_mapping = {
+            'number': ['number', 'id', 'query_id', 'num', '编号'],
+            'title': ['title', 'query_title', 'name', 'subject', '标题', '题目'],
+            'content': ['content', 'query', 'prompt', 'text', 'description', '内容', '查询', '问题']
+        }
+
+        # 找到实际的列名
+        actual_columns = {}
+        for standard_name, variants in column_mapping.items():
+            found = False
+            for variant in variants:
+                if variant.lower() in available_columns:
+                    actual_columns[standard_name] = variant
+                    found = True
+                    break
+            if not found:
+                raise ValueError(f"CSV文件缺少必需的列: {standard_name} (支持的列名: {', '.join(variants)})")
+
+        # 提取数据
+        for index, row in df.iterrows():
+            try:
+                # 获取编号，如果number列是数字则使用，否则使用行索引+1
+                number_value = row[actual_columns['number']]
+                if pd.isna(number_value):
+                    number = index + 1
+                else:
+                    try:
+                        number = int(number_value)
+                    except (ValueError, TypeError):
+                        number = index + 1
+
+                title = str(row[actual_columns['title']]).strip()
+                content = str(row[actual_columns['content']]).strip()
+
+                # 跳过空行
+                if not title or title.lower() in ['nan', 'none'] or not content or content.lower() in ['nan', 'none']:
+                    continue
+
+                queries.append({
+                    "number": number,
+                    "title": title,
+                    "content": content
+                })
+
+            except Exception as e:
+                print(f"警告: 跳过第{index+1}行，解析失败: {str(e)}")
+                continue
+
+        if not queries:
+            raise ValueError("CSV文件中没有找到有效的查询数据")
+
+        print(f"从CSV文件成功读取 {len(queries)} 个查询")
+        return queries
+
+    except Exception as e:
+        raise ValueError(f"读取CSV文件失败: {str(e)}")
+
+def extract_queries(file_path: str) -> List[Dict[str, str]]:
+    """根据文件扩展名自动选择提取方法"""
+    file_ext = os.path.splitext(file_path.lower())[1]
+
+    if file_ext == '.csv':
+        return extract_queries_from_csv(file_path)
+    elif file_ext == '.md':
+        return extract_queries_from_markdown(file_path)
+    else:
+        # 尝试根据内容判断
+        try:
+            # 先尝试CSV
+            return extract_queries_from_csv(file_path)
+        except:
+            try:
+                # 再尝试Markdown
+                return extract_queries_from_markdown(file_path)
+            except:
+                raise ValueError(f"不支持的文件格式: {file_ext}。支持的格式: .csv, .md")
 
 def create_scoring_prompt(query: Dict[str, str]) -> str:
     """创建评分提示词"""
@@ -450,7 +569,7 @@ def main():
     """主函数"""
     parser = argparse.ArgumentParser(description="POET Bench Query Selection System")
     parser.add_argument("--input_file", default="data/query_analysis/raw_query.md",
-                        help="Input markdown file containing queries")
+                        help="Input file containing queries (supports .md and .csv formats)")
     parser.add_argument("--output_dir", default="data/query_analysis/",
                         help="Output directory for results")
     parser.add_argument("--threshold", type=float, default=4.0,
@@ -493,7 +612,7 @@ def main():
         print(f"错误：找不到输入文件 {args.input_file}")
         return
 
-    queries = extract_queries_from_markdown(args.input_file)
+    queries = extract_queries(args.input_file)
     print(f"共找到 {len(queries)} 个queries")
 
     if not queries:

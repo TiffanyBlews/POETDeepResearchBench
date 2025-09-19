@@ -1,9 +1,10 @@
 # POET Bench
 
-
 ## 项目概述
 
 POET Bench 是一个专为评估深度研究智能体（Deep Research Agents, DRAs）设计的综合基准测试系统。本系统基于POET评估框架（Performance, Operability, Efficiency, Trustworthiness），通过三大核心维度评估AI智能体的真实商业价值和投资回报率（ROI）。
+
+部分代码参考 [DeepResearch Bench](https://github.com/Ayanami0730/deep_research_bench)
 
 ### POET框架核心理念
 
@@ -246,12 +247,20 @@ data/
 
 ```bash
 # 基于POET 7维度模型筛选高价值查询
+# 支持Markdown和CSV两种输入格式
+
+# 使用CSV格式输入（通用格式，推荐）
 python utils/query_selector.py \
-    --input_file query_analysis/raw_query.md \
+    --input_file your_queries.csv \
     --output_dir query_analysis/ \
     --threshold 4.0 \
     --export_selected \
     --max_workers 8
+
+# CSV格式要求（支持多种列名变体）：
+# number,title,content
+# 1,"Market Analysis","分析当前智能手机市场的发展趋势"
+# 2,"Risk Assessment","评估公司扩张到欧洲市场的财务风险"
 
 # 查看筛选结果
 ls query_analysis/
@@ -309,8 +318,16 @@ cached_scores → 新阈值筛选 → cached_criteria → 评估
 **步骤1：Query筛选和评分（智能缓存）**
 ```bash
 # 完整评分（第一次或原始查询变化时）
+# 支持Markdown和CSV输入格式
 python utils/query_selector.py \
     --input_file query_analysis/raw_query.md \
+    --output_dir query_analysis/ \
+    --threshold 4.0 \
+    --convert_to_jsonl data/prompt_data/query.jsonl
+
+# 或使用CSV格式输入
+python utils/query_selector.py \
+    --input_file your_queries.csv \
     --output_dir query_analysis/ \
     --threshold 4.0 \
     --convert_to_jsonl data/prompt_data/query.jsonl
@@ -439,7 +456,7 @@ POET综合分 = 效率价值 × 30% + 质量价值 × 50% + 战略价值 × 20%
 ### 核心模块
 
 #### 查询管理系统
-- `utils/query_selector.py`: POET 7维度查询价值评估和筛选
+- `utils/query_selector.py`: POET 7维度查询价值评估和筛选（支持Markdown和CSV输入）
 - `utils/convert_md_to_jsonl.py`: Markdown查询转JSONL格式转换器
 - `utils/query_rubrics_generator.py`: 查询特定的Rubric生成器
 

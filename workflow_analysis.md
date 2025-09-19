@@ -44,15 +44,27 @@ query.md → query.jsonl → criteria.jsonl → RACE+FACT → Efficiency → Str
 
 1. **原始查询准备**
    ```bash
-   # 输入: query_analysis/raw_query.md (markdown格式的原始查询)
-   # 支持中英文混合查询，自动识别语言
+   # 输入格式选择:
+   # - query_analysis/raw_query.md (markdown格式，原始格式)
+   # - your_queries.csv (CSV格式，通用格式，推荐)
+   # 支持中英文混合查询，自动识别语言和文件格式
    ```
 
 2. **POET查询筛选和评分**
    ```bash
    # 7维度查询价值评估（决策颠覆性、分析复杂性、行动导向性等）
+   # 支持Markdown和CSV两种输入格式，自动识别文件类型
+
+   # 使用Markdown输入（原始格式）
    python utils/query_selector.py \
      --input_file query_analysis/raw_query.md \
+     --output_dir query_analysis/ \
+     --threshold 4.0 \
+     --export_selected
+
+   # 使用CSV输入（通用格式，推荐）
+   python utils/query_selector.py \
+     --input_file your_queries.csv \
      --output_dir query_analysis/ \
      --threshold 4.0 \
      --export_selected
@@ -174,8 +186,15 @@ ENABLE_QUERY_SELECTION=true bash run_benchmark.sh
 **手动分步执行:**
 ```bash
 # 步骤1: 查询筛选（带缓存）
+# 支持Markdown和CSV输入格式
 python utils/query_selector.py \
   --input_file query_analysis/raw_query.md \
+  --threshold 4.0 \
+  --convert_to_jsonl data/prompt_data/query.jsonl
+
+# 或使用CSV格式
+python utils/query_selector.py \
+  --input_file your_queries.csv \
   --threshold 4.0 \
   --convert_to_jsonl data/prompt_data/query.jsonl
 
@@ -200,11 +219,11 @@ python utils/query_selector.py \
 ### 优化的缓存机制
 ```bash
 # 完整流程（第一次运行）
-raw_query.md → utils/query_selector.py → query_scores.json + query.jsonl
-                     ↓
-              utils/query_rubrics_generator.py → criteria.jsonl
-                     ↓
-              deepresearch_bench_race.py → results/
+raw_query.md/csv → utils/query_selector.py → query_scores.json + query.jsonl
+                         ↓
+                utils/query_rubrics_generator.py → criteria.jsonl
+                         ↓
+                deepresearch_bench_race.py → results/
 
 # 后续运行（使用缓存）
 query_scores.json → utils/query_selector.py --from_scores → query.jsonl（新阈值）
@@ -228,7 +247,7 @@ query_scores.json → utils/query_selector.py --from_scores → query.jsonl（�
 
 ### 数据准备
 3. ✅ **输入数据检查**
-   - query_analysis/raw_query.md (原始查询markdown)
+   - query_analysis/raw_query.md (原始查询markdown) 或 your_queries.csv (CSV格式)
    - data/test_data/raw_data/model_name.jsonl (模型输出)
    - config/poet_algorithm_config.json (POET配置)
 
